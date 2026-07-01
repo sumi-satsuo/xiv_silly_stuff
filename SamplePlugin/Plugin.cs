@@ -1,10 +1,13 @@
-﻿using Dalamud.Game.Command;
+using Dalamud.Game.Chat;
+using Dalamud.Game.Command;
+using Dalamud.Interface.Windowing;
 using Dalamud.IoC;
 using Dalamud.Plugin;
-using System.IO;
-using Dalamud.Interface.Windowing;
 using Dalamud.Plugin.Services;
 using SamplePlugin.Windows;
+using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
 
 namespace SamplePlugin;
 
@@ -13,18 +16,21 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
     [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
     [PluginService] internal static ICommandManager CommandManager { get; private set; } = null!;
+    [PluginService] internal static IChatGui Chat { get; private set; } = null!;
     [PluginService] internal static IClientState ClientState { get; private set; } = null!;
+    [PluginService] internal static IPartyList PartyList { get; private set; } = null!; 
     [PluginService] internal static IPlayerState PlayerState { get; private set; } = null!;
     [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
     [PluginService] internal static IPluginLog Log { get; private set; } = null!;
 
-    private const string CommandName = "/pmycommand";
+    private const string TruthOrDareCommand = "/tod";
 
     public Configuration Configuration { get; init; }
 
     public readonly WindowSystem WindowSystem = new("SamplePlugin");
     private ConfigWindow ConfigWindow { get; init; }
     private MainWindow MainWindow { get; init; }
+    private TruthOrDare TruthOrDare { get; init; }
 
     public Plugin()
     {
@@ -35,13 +41,14 @@ public sealed class Plugin : IDalamudPlugin
 
         ConfigWindow = new ConfigWindow(this);
         MainWindow = new MainWindow(this, goatImagePath);
+        TruthOrDare = new TruthOrDare(PartyList);
 
         WindowSystem.AddWindow(ConfigWindow);
         WindowSystem.AddWindow(MainWindow);
 
-        CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
+        CommandManager.AddHandler(TruthOrDareCommand, new CommandInfo(OnTruthOrDareCommand)
         {
-            HelpMessage = "A useful message to display in /xlhelp"
+            HelpMessage = "Play a game of Truth or Dare with your party members."
         });
 
         // Tell the UI system that we want our windows to be drawn through the window system
@@ -72,15 +79,53 @@ public sealed class Plugin : IDalamudPlugin
         ConfigWindow.Dispose();
         MainWindow.Dispose();
 
-        CommandManager.RemoveHandler(CommandName);
+        CommandManager.RemoveHandler(TruthOrDareCommand);
     }
 
-    private void OnCommand(string command, string args)
+    private void OnTruthOrDareCommand(string command, string args)
     {
-        // In response to the slash command, toggle the display status of our main ui
-        MainWindow.Toggle();
+        switch (args.Trim().ToLower())
+        {
+            case "play":
+                var result = TruthOrDare.Play();
+                if (result.HasValue)
+                {
+                    var (winner, loser) = result.Value;
+                    var resMessage = $"Winner: {winner} | Loser: {loser}";
+
+                    if (!CommandManager.ProcessCommand($"/p {resMessage}"))
+                    {
+                        Chat.Print(resMessage);
+                    }
+                }
+                else
+                {
+                    Chat.PrintError("Not enough party members to play Truth or Dare. You need at least 3.");
+                }
+                break;
+
+            case "last":
+                // Show history @TODO
+                var lastWinner = TruthOrDare.lastWinner;
+                var lastLoser = TruthOrDare.lastLoser;
+
+                var message = $"Winner: {lastWinner} | Loser: {lastLoser}";
+
+                if (!CommandManager.ProcessCommand($"/p {message}"))
+                {
+                    Chat.Print(message);
+                }
+                break;
+
+            default:
+                Chat.Print("Play using: /tod play");
+                Chat.Print("Check last match: /tod last");
+                break;
+        }
+        
     }
-    
+
+
     public void ToggleConfigUi() => ConfigWindow.Toggle();
     public void ToggleMainUi() => MainWindow.Toggle();
 }
