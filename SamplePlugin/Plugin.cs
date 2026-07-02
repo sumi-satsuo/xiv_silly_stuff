@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using ECommons.Automation;
+using System;
 
 namespace SamplePlugin;
 
@@ -22,12 +23,14 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
     [PluginService] internal static ICommandManager CommandManager { get; private set; } = null!;
     [PluginService] internal static IClientState ClientState { get; private set; } = null!;
+    [PluginService] internal static IChatGui DalaChat { get; private set; } = null!;
     [PluginService] internal static IPartyList PartyList { get; private set; } = null!; 
     [PluginService] internal static IPlayerState PlayerState { get; private set; } = null!;
     [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
     [PluginService] internal static IPluginLog Log { get; private set; } = null!;
 
     private const string TruthOrDareCommand = "/tod";
+    
 
     public Configuration Configuration { get; init; }
 
@@ -36,6 +39,7 @@ public sealed class Plugin : IDalamudPlugin
     private MainWindow MainWindow { get; init; }
     private TruthOrDare TruthOrDare { get; init; }
 
+    
     public Plugin()
     {
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
@@ -43,15 +47,18 @@ public sealed class Plugin : IDalamudPlugin
         // You might normally want to embed resources and load them from the manifest stream
         var goatImagePath = Path.Combine(PluginInterface.AssemblyLocation.Directory?.FullName!, "goat.png");
 
+        ECommonsMain.Init(PluginInterface, this);
         ConfigWindow = new ConfigWindow(this);
         MainWindow = new MainWindow(this, goatImagePath);
         TruthOrDare = new TruthOrDare(PartyList);
-        ECommonsMain.Init(PluginInterface, this);
+        //TODO Make a russianRoulette game xD
 
         WindowSystem.AddWindow(ConfigWindow);
         WindowSystem.AddWindow(MainWindow);
 
-        CommandManager.AddHandler(TruthOrDareCommand, new CommandInfo(OnTruthOrDareCommand)
+        
+
+    CommandManager.AddHandler(TruthOrDareCommand, new CommandInfo(OnTruthOrDareCommand)
         {
             HelpMessage = "Play a game of Truth or Dare with your party members."
         });
@@ -94,36 +101,42 @@ public sealed class Plugin : IDalamudPlugin
         {
             case "play":
                 var result = TruthOrDare.Play();
-                if (result.HasValue)
+                if (result.Success)
                 {
                     var (winner, loser) = result.Value;
-                    var resMessage = $"/p Winner: {winner} | Loser: {loser}";
-                    Chat.SendMessage("/p Truth or Dare!!");
+                    var resMessage = $"/p  Asker: {winner} | Victim: {loser} ";
+                    Chat.SendMessage($"/p  Truth or Dare!! Round {TruthOrDare.CurrentRound} ");
                     Chat.SendMessage(resMessage);
                 }
                 else
                 {
-                    Chat.SendMessage("Not enough party members to play Truth or Dare. You need at least 3.");
+                    DalaChat.PrintError($"{result.Error}");
                 }
+                
                 break;
 
             case "last":
                 var lastWinner = TruthOrDare.lastWinner;
                 var lastLoser = TruthOrDare.lastLoser;
 
-                var message = $"Winner: {lastWinner} | Loser: {lastLoser}";
+                var message = $" Asker: {lastWinner} | Victim: {lastLoser} ";
 
+                Chat.SendMessage($"/p  Last round results: ");
                 Chat.SendMessage($"/p {message}");
                 break;
 
-            default:
-                Chat.SendMessage("Play using: /tod play");
-                Chat.SendMessage("Check last match: /tod last");
+            case "reset":
+                TruthOrDare.reset();
+                DalaChat.Print("Rounds have been reset.");
                 break;
-        }
-        
-    }
 
+            default:
+                DalaChat.Print("Play using: /tod play");
+                DalaChat.Print("Check last match: /tod last");
+                DalaChat.Print("Reset Rounds: /tod reset");
+                break;
+        }   
+    }
 
     public void ToggleConfigUi() => ConfigWindow.Toggle();
     public void ToggleMainUi() => MainWindow.Toggle();

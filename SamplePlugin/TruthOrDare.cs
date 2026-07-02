@@ -9,17 +9,28 @@ using System.Xml.Linq;
 
 namespace SamplePlugin
 {
+    
     internal class TruthOrDare(IPartyList partyList)
     {
         private readonly IPartyList partyList = partyList;
         public string? lastWinner { get; private set; }
         public string? lastLoser { get; private set; }
 
-        public (string Winner, string Loser)? Play()
+        private DateTime lastPlayed = DateTime.MinValue;
+        public int CurrentRound { get; private set; } = 1;
+
+        private const int PlayTimeout = 30; // 30 seconds timeout
+
+        public Result<(string Winner, string Loser)> Play()
         {
             if (partyList.Length < 3)
             {
-                return null;
+                return Result<(string, string)>.Fail(" Not enough party members to play Truth or Dare. You need at least 3. ");
+            }
+
+            if (lastPlayed.AddSeconds(PlayTimeout) > DateTime.Now)
+            {
+                return Result<(string, string)>.Fail("  You can only play Truth or Dare once every 30 seconds.  ");
             }
 
             // Logic for selecting a winner and loser
@@ -41,8 +52,18 @@ namespace SamplePlugin
             lastLoser = currentLoser;
             lastWinner = currentWinner;
 
+            // Update the last played time and increment the round
+            lastPlayed = DateTime.Now;
+            CurrentRound += 1;
 
-            return (Winner: currentWinner, Loser: currentLoser);
+            return Result<(string, string)>.Ok((currentWinner, currentLoser));
+        }
+
+        public void reset()
+        {
+            lastWinner = null;
+            lastLoser = null;
+            CurrentRound = 1;
         }
     }
 }
