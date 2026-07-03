@@ -6,14 +6,16 @@ using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using ECommons;
+using ECommons.Automation;
 using ECommons.DalamudServices;
 using ECommons.DalamudServices.Legacy;
 using SamplePlugin.Windows;
+using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
-using ECommons.Automation;
-using System;
+using System.Text.RegularExpressions;
 
 namespace SamplePlugin;
 
@@ -56,7 +58,6 @@ public sealed class Plugin : IDalamudPlugin
         WindowSystem.AddWindow(ConfigWindow);
         WindowSystem.AddWindow(MainWindow);
 
-        
 
     CommandManager.AddHandler(TruthOrDareCommand, new CommandInfo(OnTruthOrDareCommand)
         {
@@ -97,7 +98,10 @@ public sealed class Plugin : IDalamudPlugin
 
     private void OnTruthOrDareCommand(string command, string args)
     {
-        switch (args.Trim().ToLower())
+        var splitArgs = args.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var subCommand = splitArgs.FirstOrDefault()?.ToLower() ?? "";
+
+        switch (subCommand)
         {
             case "play":
                 var result = TruthOrDare.Play();
@@ -116,17 +120,43 @@ public sealed class Plugin : IDalamudPlugin
                 break;
 
             case "last":
-                var lastWinner = TruthOrDare.lastWinner;
-                var lastLoser = TruthOrDare.lastLoser;
+                var amount = 1;
 
-                var message = $" Asker: {lastWinner} | Victim: {lastLoser} ";
+                if (splitArgs.Length > 1)
+                {
+                    if(!int.TryParse(splitArgs[1], out amount) || amount <= 0)
+                    {
+                        DalaChat.PrintError("Invalid amount specified. Please provide a valid number.");
+                        return;
+                    }
+                }
 
-                Chat.SendMessage($"/p  Last round results: ");
-                Chat.SendMessage($"/p {message}");
+                if (amount > 1)
+                {
+                    var lastMatches = TruthOrDare.GetLast(amount);
+                    Chat.SendMessage($"/p  Last {amount} round results: ");
+                    foreach (var match in lastMatches)
+                    {
+                        Chat.SendMessage($" Asker: {match.Winner} | Victim: {match.Loser} | Round: {match.CurrentRound} ");
+                        //small delay to avoid flooding the chat
+                    }
+                    return;
+                }
+                else
+                {
+                    var lastMatch = TruthOrDare.GetLast(1).FirstOrDefault();
+                    if (lastMatch.Winner == null || lastMatch.Loser == null)
+                    {
+                        DalaChat.Print("No matches have been played yet.");
+                        return;
+                    }
+                    Chat.SendMessage($"/p  Last round results: ");
+                    Chat.SendMessage($" Asker: {lastMatch.Winner} | Victim: {lastMatch.Loser} | Round: {lastMatch.CurrentRound} ");
+                }
                 break;
 
             case "reset":
-                TruthOrDare.reset();
+                TruthOrDare.Reset();
                 DalaChat.Print("Rounds have been reset.");
                 break;
 

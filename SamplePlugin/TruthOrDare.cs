@@ -19,6 +19,8 @@ namespace SamplePlugin
         private DateTime lastPlayed = DateTime.MinValue;
         public int CurrentRound { get; private set; } = 1;
 
+        public List<(string Winner, string Loser, int CurrentRound)> history { get; private set; } = [];
+
         private const int PlayTimeout = 30; // 30 seconds timeout
 
         public Result<(string Winner, string Loser)> Play()
@@ -56,14 +58,23 @@ namespace SamplePlugin
             lastPlayed = DateTime.Now;
             CurrentRound += 1;
 
+            // Updates History
+            history.Add((currentWinner, currentLoser, CurrentRound));
+
             return Result<(string, string)>.Ok((currentWinner, currentLoser));
         }
 
-        public void reset()
+        public List<(string Winner, string Loser, int CurrentRound)> GetLast(int amount = 1)
+        {
+            return history.TakeLast(amount).ToList();
+        }
+
+        public void Reset()
         {
             lastWinner = null;
             lastLoser = null;
             CurrentRound = 1;
+            history.Clear();
         }
     }
 }
