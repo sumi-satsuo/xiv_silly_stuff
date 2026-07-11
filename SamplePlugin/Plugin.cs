@@ -110,16 +110,15 @@ public sealed class Plugin : IDalamudPlugin
                 {
                     var (winner, loser) = result.Value;
                     var resMessage = $"/p  Asker: {winner} | Victim: {loser} ";
-                    if (Configuration.debugMode)
-                    {
-                        resMessage += " (Debug Mode)";
-                        DalaChat.Print($"/p  Truth or Dare!! Round {TruthOrDare.CurrentRound} ");
-                        DalaChat.Print(resMessage);
-                    }
-                    else
+                    if (Configuration.SendToParty)
                     {
                         Chat.SendMessage($"/p  Truth or Dare!! Round {TruthOrDare.CurrentRound} ");
                         Chat.SendMessage(resMessage);
+                    }
+                    else
+                    {
+                        DalaChat.Print($"/p  Truth or Dare!! Round {TruthOrDare.CurrentRound} ");
+                        DalaChat.Print(resMessage);
                     }
                 }
                 else
