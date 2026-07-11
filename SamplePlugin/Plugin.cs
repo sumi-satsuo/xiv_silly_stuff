@@ -106,10 +106,14 @@ public sealed class Plugin : IDalamudPlugin
         {
             case "play":
                 var result = TruthOrDare.Play(Configuration);
+                var resultValue = result.Value!;
                 if (result.Success)
                 {
-                    var (winner, loser) = result.Value;
-                    var resMessage = $"/p  Asker: {winner} | Victim: {loser} ";
+                    var resMessage = $"/p  Asker: {resultValue.Winner} | Victim: {resultValue.Loser} ";
+                    if (resultValue.Effect != SpecialEffect.None)
+                    {
+                        resMessage += $" | Effect: {resultValue.Effect}";
+                    }
                     if (Configuration.SendToParty)
                     {
                         Chat.SendMessage($"/p  Truth or Dare!! Round {TruthOrDare.CurrentRound} ");

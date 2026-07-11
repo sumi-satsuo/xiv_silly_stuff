@@ -28,7 +28,7 @@ namespace SamplePlugin
 
         public List<(string Winner, string Loser, int CurrentRound)> History { get; private set; } = [];
 
-        public Result<(string Winner, string Loser)> Play(Configuration configuration)
+        public Result<TruthOrDareResult> Play(Configuration configuration)
         {
             List<string> playerPool;
 
@@ -40,13 +40,13 @@ namespace SamplePlugin
             {
                 if (partyList.Length < 3)
                 {
-                    return Result<(string, string)>.Fail(
+                    return Result<TruthOrDareResult>.Fail(
                         " Not enough party members to play Truth or Dare. You need at least 3. ");
                 }
 
                 if (lastPlayed.AddSeconds(configuration.CooldownSeconds) > DateTime.Now)
                 {
-                    return Result<(string, string)>.Fail(
+                    return Result<TruthOrDareResult>.Fail(
                         $"You can only play every {configuration.CooldownSeconds} seconds.");
                 }
 
@@ -81,7 +81,27 @@ namespace SamplePlugin
             // Updates History
             History.Add((currentWinner, currentLoser, CurrentRound));
 
-            return Result<(string, string)>.Ok((currentWinner, currentLoser));
+            var roll = Random.Shared.Next(1, 21);
+
+            var effect = roll switch
+            {
+                20 => SpecialEffect.EveryoneAnswers,
+                19 => SpecialEffect.DoubleQuestion,
+                18 => SpecialEffect.DareOnly,
+                2 => SpecialEffect.TruthOnly,
+                1 => SpecialEffect.ReverseRoles,
+                _ => SpecialEffect.None
+            };
+
+            return Result<TruthOrDareResult>.Ok(
+                new TruthOrDareResult
+                {
+                    Winner = currentWinner,
+                    Loser = currentLoser,
+                    Round = CurrentRound,
+                    D20Roll = roll,
+                    Effect = effect
+                });
         }
 
         public List<(string Winner, string Loser, int CurrentRound)> GetLast(int amount = 1)
