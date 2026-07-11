@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Windowing;
@@ -8,6 +8,10 @@ namespace SamplePlugin.Windows;
 public class ConfigWindow : Window, IDisposable
 {
     private readonly Configuration configuration;
+    public int CooldownSeconds { get; set; } = 30;
+    public bool SendToParty { get; set; } = true;
+    public bool IsConfigWindowMovable { get; set; } = false;
+    public bool DebugMode { get; set; } = false;
 
     // We give this window a constant ID using ###.
     // This allows for labels to be dynamic, like "{FPS Counter}fps###XYZ counter window",
@@ -17,7 +21,7 @@ public class ConfigWindow : Window, IDisposable
         Flags = ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar |
                 ImGuiWindowFlags.NoScrollWithMouse;
 
-        Size = new Vector2(232, 90);
+        Size = new Vector2(500, 500);
         SizeCondition = ImGuiCond.Always;
 
         configuration = plugin.Configuration;
@@ -40,14 +44,38 @@ public class ConfigWindow : Window, IDisposable
 
     public override void Draw()
     {
-        // Can't ref a property, so use a local copy
-        var configValue = configuration.SomePropertyToBeSavedAndWithADefault;
-        if (ImGui.Checkbox("Random Config Bool", ref configValue))
+        var changed = false;
+        var cooldown = configuration.CooldownSeconds;
+        if (ImGui.SliderInt("Cooldown (seconds)", ref cooldown, 5, 300))
         {
-            configuration.SomePropertyToBeSavedAndWithADefault = configValue;
-            // Can save immediately on change if you don't want to provide a "Save and Close" button
+            configuration.CooldownSeconds = cooldown;
+            changed = true;
+        }
+        if (changed)
+        {
             configuration.Save();
         }
+
+        var sendToParty = configuration.SendToParty;
+        if (ImGui.Checkbox("Announce in Party Chat", ref sendToParty))
+        {
+            if (configuration.debugMode)
+            {
+                configuration.debugMode = false;
+            }
+            configuration.SendToParty = sendToParty;
+            configuration.Save();
+        }
+
+        var debugMode = configuration.debugMode;
+        if (ImGui.Checkbox("Debug Mode (No need for Party)", ref debugMode))
+        {
+            configuration.debugMode = debugMode;
+            configuration.SendToParty = false;
+            configuration.Save();
+        }
+
+        ImGui.Separator();
 
         var movable = configuration.IsConfigWindowMovable;
         if (ImGui.Checkbox("Movable Config Window", ref movable))

@@ -19,24 +19,44 @@ namespace SamplePlugin
         private DateTime lastPlayed = DateTime.MinValue;
         public int CurrentRound { get; private set; } = 1;
 
-        public List<(string Winner, string Loser, int CurrentRound)> history { get; private set; } = [];
+        private static readonly List<string> DebugPlayers =
+            [
+                "d_Sumi",
+                "d_Kana",
+                "d_Kitten"
+            ];
 
-        private const int PlayTimeout = 30; // 30 seconds timeout
+        public List<(string Winner, string Loser, int CurrentRound)> History { get; private set; } = [];
 
-        public Result<(string Winner, string Loser)> Play()
+        public Result<(string Winner, string Loser)> Play(Configuration configuration)
         {
-            if (partyList.Length < 3)
-            {
-                return Result<(string, string)>.Fail(" Not enough party members to play Truth or Dare. You need at least 3. ");
-            }
+            List<string> playerPool;
 
-            if (lastPlayed.AddSeconds(PlayTimeout) > DateTime.Now)
+            if (configuration.debugMode)
             {
-                return Result<(string, string)>.Fail("  You can only play Truth or Dare once every 30 seconds.  ");
+                playerPool = [.. DebugPlayers];
+            }
+            else
+            {
+                if (partyList.Length < 3)
+                {
+                    return Result<(string, string)>.Fail(
+                        " Not enough party members to play Truth or Dare. You need at least 3. ");
+                }
+
+                if (lastPlayed.AddSeconds(configuration.CooldownSeconds) > DateTime.Now)
+                {
+                    return Result<(string, string)>.Fail(
+                        $"You can only play every {configuration.CooldownSeconds} seconds.");
+                }
+
+                playerPool = partyList
+                    .Select(p => p.Name.TextValue)
+                    .ToList();
             }
 
             // Logic for selecting a winner and loser
-            var playerPool = partyList.Select(p => p.Name.TextValue).ToList();
+            //var playerPool = partyList.Select(p => p.Name.TextValue).ToList();
             var possibleWinners = playerPool.Where(name => name != lastWinner).ToList();
 
             // Pick a random winner
@@ -59,14 +79,14 @@ namespace SamplePlugin
             CurrentRound += 1;
 
             // Updates History
-            history.Add((currentWinner, currentLoser, CurrentRound));
+            History.Add((currentWinner, currentLoser, CurrentRound));
 
             return Result<(string, string)>.Ok((currentWinner, currentLoser));
         }
 
         public List<(string Winner, string Loser, int CurrentRound)> GetLast(int amount = 1)
         {
-            return history.TakeLast(amount).ToList();
+            return History.TakeLast(amount).ToList();
         }
 
         public void Reset()
@@ -74,7 +94,7 @@ namespace SamplePlugin
             lastWinner = null;
             lastLoser = null;
             CurrentRound = 1;
-            history.Clear();
+            History.Clear();
         }
     }
 }

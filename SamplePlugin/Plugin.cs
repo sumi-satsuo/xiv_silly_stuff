@@ -96,21 +96,31 @@ public sealed class Plugin : IDalamudPlugin
         CommandManager.RemoveHandler(TruthOrDareCommand);
     }
 
-    private void OnTruthOrDareCommand(string command, string args)
+    private void OnTruthOrDareCommand(string command, string args) // command: >tod< play
     {
         var splitArgs = args.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        var subCommand = splitArgs.FirstOrDefault()?.ToLower() ?? "";
+        var subcommand = splitArgs.FirstOrDefault()?.ToLower() ?? ""; //subcommand: tod >play<
+        var subcommand_optAmount = 1;
 
-        switch (subCommand)
+        switch (subcommand)
         {
             case "play":
-                var result = TruthOrDare.Play();
+                var result = TruthOrDare.Play(Configuration);
                 if (result.Success)
                 {
                     var (winner, loser) = result.Value;
                     var resMessage = $"/p  Asker: {winner} | Victim: {loser} ";
-                    Chat.SendMessage($"/p  Truth or Dare!! Round {TruthOrDare.CurrentRound} ");
-                    Chat.SendMessage(resMessage);
+                    if (Configuration.debugMode)
+                    {
+                        resMessage += " (Debug Mode)";
+                        DalaChat.Print($"/p  Truth or Dare!! Round {TruthOrDare.CurrentRound} ");
+                        DalaChat.Print(resMessage);
+                    }
+                    else
+                    {
+                        Chat.SendMessage($"/p  Truth or Dare!! Round {TruthOrDare.CurrentRound} ");
+                        Chat.SendMessage(resMessage);
+                    }
                 }
                 else
                 {
@@ -120,21 +130,19 @@ public sealed class Plugin : IDalamudPlugin
                 break;
 
             case "last":
-                var amount = 1;
-
                 if (splitArgs.Length > 1)
                 {
-                    if(!int.TryParse(splitArgs[1], out amount) || amount <= 0)
+                    if (!int.TryParse(splitArgs[1], out subcommand_optAmount) || subcommand_optAmount <= 0)
                     {
                         DalaChat.PrintError("Invalid amount specified. Please provide a valid number.");
                         return;
                     }
                 }
 
-                if (amount > 1)
+                if (subcommand_optAmount > 1)
                 {
-                    var lastMatches = TruthOrDare.GetLast(amount);
-                    Chat.SendMessage($"/p  Last {amount} round results: ");
+                    var lastMatches = TruthOrDare.GetLast(subcommand_optAmount);
+                    Chat.SendMessage($"/p  Last {subcommand_optAmount} round results: ");
                     foreach (var match in lastMatches)
                     {
                         Chat.SendMessage($" Asker: {match.Winner} | Victim: {match.Loser} | Round: {match.CurrentRound} ");
@@ -158,6 +166,10 @@ public sealed class Plugin : IDalamudPlugin
             case "reset":
                 TruthOrDare.Reset();
                 DalaChat.Print("Rounds have been reset.");
+                break;
+
+            case "config":
+                ToggleConfigUi();
                 break;
 
             default:
